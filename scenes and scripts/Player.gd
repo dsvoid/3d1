@@ -19,16 +19,20 @@ func _physics_process(delta):
 	input_dir.x = int(Input.is_action_pressed("move_left")) - int(Input.is_action_pressed("move_right"))
 	input_dir.z = int(Input.is_action_pressed("move_up")) - int(Input.is_action_pressed("move_down"))
 	input_dir = input_dir.normalized()
+	
 	if input_dir == Vector3.ZERO:
 		apply_friction(stop_accel * delta)
 	else:
+		var input_rotated = Vector2(input_dir.x,input_dir.z).rotated(-camera_rig.rotation.y)
+		input_dir.x = input_rotated.x
+		input_dir.z = input_rotated.y
 		apply_movement(input_dir * move_accel * delta)
 		apply_rotation(input_dir,delta)
 		
 	vel = move_and_slide(vel,Vector3.UP)
 	camera_follows_player()
 	
-func apply_friction(amount):
+func apply_friction(amount):	
 	if Vector2(vel.x,vel.z).length() > amount:
 		var vel_normalized = vel.normalized()
 		vel.x -= vel_normalized.x * amount
