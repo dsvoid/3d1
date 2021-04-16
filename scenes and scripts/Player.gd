@@ -50,6 +50,9 @@ func apply_movement(amount):
 func apply_rotation(dir,delta):
 	var a = atan2(-dir.x,-dir.z)
 	rotation.y = lerp_angle(rotation.y, atan2(-dir.x,-dir.z), delta*rot_accel)
+	if camera_rig.mouse_delta.x != 0:
+		var rot = camera_rig.mouse_delta.x * camera_rig.look_sensitivity * delta
+		rotation_degrees.y -= rot
 
 func camera_follows_player():
 	camera_rig.global_transform.origin = global_transform.origin
