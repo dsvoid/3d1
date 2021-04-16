@@ -1,12 +1,12 @@
 extends Position3D
 
-var look_sensitivity : float = 15.0
+var look_sensitivity : float = 10.0
 var mouse_delta : Vector2 = Vector2()
 
 onready var player = get_parent()
 
 func _ready():
-	pass
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 	
 func _input(event):
 	if event is InputEventMouseMotion:
