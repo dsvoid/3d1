@@ -1,9 +1,10 @@
 extends KinematicBody
 
 
-var max_speed : float = 10.0
-var move_accel : float = 60.0
-var stop_accel : float = 60.0
+var max_speed : float = 6.0
+var move_accel : float = 30.0
+var stop_accel : float = 30.0
+var rot_accel : float = 8.0
 var vel : Vector3 = Vector3()
 
 onready var camera_rig = $CameraRig
@@ -22,6 +23,8 @@ func _physics_process(delta):
 		apply_friction(stop_accel * delta)
 	else:
 		apply_movement(input_dir * move_accel * delta)
+		apply_rotation(input_dir,delta)
+		
 	vel = move_and_slide(vel,Vector3.UP)
 	camera_follows_player()
 	
@@ -39,6 +42,10 @@ func apply_movement(amount):
 	var vel_clamped = Vector2(vel.x,vel.z).clamped(max_speed)
 	vel.x = vel_clamped.x
 	vel.z = vel_clamped.y
-	
+
+func apply_rotation(dir,delta):
+	var a = atan2(-dir.x,-dir.z)
+	rotation.y = lerp_angle(rotation.y, atan2(-dir.x,-dir.z), delta*rot_accel)
+
 func camera_follows_player():
 	camera_rig.global_transform.origin = global_transform.origin

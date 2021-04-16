@@ -24,7 +24,7 @@ mesh = SubResource( 2 )
 material/0 = null
 
 [node name="TempBeak" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0.5 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -0.5 )
 mesh = SubResource( 3 )
 material/0 = null
 
