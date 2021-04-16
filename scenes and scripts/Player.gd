@@ -2,8 +2,8 @@ extends KinematicBody
 
 
 var max_speed : float = 6.0
-var move_accel : float = 30.0
-var stop_accel : float = 30.0
+var move_accel : float = 45.0
+var stop_accel : float = 45.0
 var rot_accel : float = 8.0
 var vel : Vector3 = Vector3()
 
