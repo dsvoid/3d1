@@ -1,3 +1,4 @@
 extends Node
 
-const TWEEN_DURATION = 0.5
+const MOVE_TWEEN_DURATION = 0.5
+const ALIGN_TWEEN_DURATION = 0.3

@@ -1,151 +1,98 @@
 extends KinematicBody
 
-
 var max_speed : float = 5.0
 var move_accel : float = 40.0
 var stop_accel : float = 40.0
 var rot_accel : float = 8.0
+var align_rot_accel : float = 12.0
 var vel : Vector3 = Vector3()
-var grab_dist : float = 1.9
-var grab_pos : Vector3 = Vector3.ZERO
-var found_grab_pos : bool = false
 var grabbed_obj : StaticBody = null
-var move_obj_timer : float = Global.TWEEN_DURATION
+var grab_pos : Vector3 = Vector3.ZERO
 var move_obj_dir : int = 0
-var in_tween : bool = false
 
-onready var camera_rig = $CameraRig
-onready var camera = $CameraRig/Camera
-onready var grab_ray_cast = $GrabRayCast
+enum {IDLE,ALIGN_WITH_OBJ,HOLD_OBJ,MOVE_OBJ}
+var state : int = IDLE
+
+var in_move_obj_tween : bool = false
+var move_obj_tween_complete : bool = false
+var in_align_tween : bool = false
+var align_tween_complete : bool = false
 
 func _ready():
-	$Tween.connect("tween_completed", self, "on_tween_completed")
+	$MoveObjTween.connect("tween_completed", self, "on_move_obj_tween_completed")
+	$AlignTween.connect("tween_completed", self, "on_align_tween_completed")
 	# separate player rotation from camera rotation
-	camera_rig.set_as_toplevel(true)
+	$CameraRig.set_as_toplevel(true)
 
 func _physics_process(delta):
+	match state:
+		IDLE:
+			state_idle(delta)
+		ALIGN_WITH_OBJ:
+			state_align_with_obj(delta)
+		HOLD_OBJ:
+			state_hold_obj(delta)
+		MOVE_OBJ:
+			state_move_obj(delta)
+	$CameraRig.global_transform.origin = global_transform.origin
+
+func state_idle(delta):
+	process_movement(delta)
 	if Input.is_action_pressed("use_key") and $GrabRayCast.is_colliding():
-		process_grab(delta)
-	elif Input.is_action_just_released("use_key") and $GrabRayCast.is_colliding():
-		process_release()
-	else:
-		process_movement(delta)
-	# make sure camera follows player
-	camera_rig.global_transform.origin = global_transform.origin
-	# object movement input delay
-	if move_obj_timer < Global.TWEEN_DURATION:
-		move_obj_timer = min(move_obj_timer+delta,Global.TWEEN_DURATION)
-
-func process_grab(delta):
-	# tint grabbed object
-	grabbed_obj = $GrabRayCast.get_collider()
-	var new_mat = SpatialMaterial.new()
-	new_mat.albedo_color = Color(0,0.7,0)
-	grabbed_obj.get_node("MeshInstance").material_override = new_mat
-	find_grab_pos(grabbed_obj.translation)
-	# move player to object until they're aligned with it
-	if not move_player_against_object(delta):
+		grabbed_obj = $GrabRayCast.get_collider()
+		var new_mat = SpatialMaterial.new()
+		new_mat.albedo_color = Color(0,0.7,0)
+		grabbed_obj.get_node("MeshInstance").material_override = new_mat
+		find_grab_pos()
+		state = ALIGN_WITH_OBJ
 		return
-	# once player is aligned they may move the object
-	process_move_object()
 
-func process_release():
-	# tint released object
-	var collider = $GrabRayCast.get_collider()
-	var new_mat = SpatialMaterial.new()
-	new_mat.albedo_color = Color(1.0,0.6,1.0)
-	collider.get_node("MeshInstance").material_override = new_mat
-	grabbed_obj = null
-	found_grab_pos = false
-
-func move_player_against_object(delta):
-	var obj_pos = grabbed_obj.translation
+func state_align_with_obj(delta):
+	var obj_pos = grabbed_obj.global_transform.origin
 	var look_dir = Vector3(translation.x - obj_pos.x, 0, translation.z - obj_pos.z)
 	var look_angle = atan2(-look_dir.x,-look_dir.z)
-	rotation.y = lerp_angle(rotation.y, look_angle, delta*rot_accel)
-	translation = lerp(translation,grab_pos,0.15)
-	var x_ready = false
-	var z_ready = false
-	var rot_ready = false
-	if abs(translation.x - grab_pos.x) < 0.05:
-		translation.x = grab_pos.x
-		x_ready = true
-	if abs(translation.z - grab_pos.z) < 0.05:
-		translation.z = grab_pos.z
-		z_ready = true
-	if abs(rotation.y - look_angle) < 0.05:
+	if align_tween_complete:
+		align_tween_complete = false
 		rotation.y = look_angle
-		rot_ready = true
-	if x_ready and z_ready and rot_ready:
-		return true
-	return false
+		if not Input.is_action_pressed("use_key"):
+			release_obj()
+			state = IDLE
+			return
+		state = HOLD_OBJ
+		return
+	if not in_align_tween:
+		apply_align_tween()
+	rotation.y = lerp_angle(rotation.y, look_angle, delta*align_rot_accel)
 
-func find_grab_pos(obj_pos):
-	if abs(translation.x - obj_pos.x) > abs(translation.z - obj_pos.z):
-		grab_pos.z = obj_pos.z
-		if translation.x < obj_pos.x:
-			grab_pos.x = obj_pos.x - 1
-		else:
-			grab_pos.x = obj_pos.x + 1
-	else:
-		grab_pos.x = obj_pos.x
-		if translation.z < obj_pos.z:
-			grab_pos.z = obj_pos.z - 1
-		else:
-			grab_pos.z = obj_pos.z + 1
-
-func process_move_object():
+func state_hold_obj(delta):
+	if not Input.is_action_pressed("use_key"):
+		release_obj()
+		state = IDLE
+		return
 	var inputs = determine_movement_keys()
 	var forward_input = inputs[0]
 	var backward_input = inputs[1]
-	var obj_pos = grabbed_obj.global_transform.origin
-	var forward_dir = Vector3(obj_pos.x - translation.x,0,obj_pos.z - translation.z).normalized()
-	# pressing the keys moves the object
-	if move_obj_timer == Global.TWEEN_DURATION:
-		if Input.is_action_just_pressed(forward_input):
-			print("hit forward")
-			move_obj_dir = 1
-		elif Input.is_action_just_pressed(backward_input):
-			print("hit back")
-			move_obj_dir = -1
-		if move_obj_dir != 0:
-			move_obj_timer = 0
-			grabbed_obj.apply_tween(forward_dir * move_obj_dir)
-			apply_tween(forward_dir * move_obj_dir)
-			move_obj_dir = 0
+	var move_obj = false
+	if Input.is_action_pressed(forward_input):
+		move_obj_dir = 1
+		move_obj = true
+	elif Input.is_action_pressed(backward_input):
+		move_obj_dir = -1
+		move_obj = true
+	if move_obj:
+		state = MOVE_OBJ
+		return
 
-func apply_tween(target):
-	in_tween = true
-	$Tween.interpolate_property(
-		self, "translation", translation, translation+target, Global.TWEEN_DURATION,
-		Tween.TRANS_QUAD, Tween.EASE_IN_OUT
-	)
-	$Tween.start()
-
-func on_tween_completed(object,key):
-	in_tween = false
-
-func determine_movement_keys():
-	# determine which keys move the object along the axis
-	var forward_input = ""
-	var backward_input = ""
-	var obj_pos = grabbed_obj.global_transform.origin
-	var forward_dir = (Vector2(translation.x,translation.z) - Vector2(obj_pos.x,obj_pos.z)).normalized()
-	var camera_dir = Vector2(sin(camera_rig.rotation.y),cos(camera_rig.rotation.y))
-	var camera_perp = Vector2(camera_dir.y,-camera_dir.x)
-	var dot_cam = forward_dir.dot(camera_dir)
-	var dot_perp = forward_dir.dot(camera_perp)
-	if abs(dot_cam) > abs(dot_perp):
-		#		   [forward input, backward input]
-		if dot_cam > 0:
-			return ["move_down", "move_up"]
-		else:
-			return ["move_up", "move_down"]
-	else:
-		if dot_perp > 0:
-			return ["move_right", "move_left"]
-		else:
-			return ["move_left", "move_right"]
+func state_move_obj(delta):
+	if move_obj_tween_complete:
+		move_obj_tween_complete = false
+		state = HOLD_OBJ
+		return
+	if not in_move_obj_tween:
+		var obj_pos = grabbed_obj.global_transform.origin
+		var forward_dir = Vector3(obj_pos.x - translation.x,0,obj_pos.z - translation.z).normalized()
+		grabbed_obj.apply_move_tween(forward_dir*move_obj_dir)
+		apply_move_obj_tween(forward_dir*move_obj_dir)
 
 func process_movement(delta):
 	var input_dir = Vector3.ZERO
@@ -155,7 +102,7 @@ func process_movement(delta):
 	if input_dir == Vector3.ZERO:
 		apply_friction(stop_accel * delta)
 	else:
-		var input_rotated = Vector2(input_dir.x,input_dir.z).rotated(-camera_rig.rotation.y)
+		var input_rotated = Vector2(input_dir.x,input_dir.z).rotated(-$CameraRig.rotation.y)
 		input_dir.x = input_rotated.x
 		input_dir.z = input_rotated.y
 		apply_movement(input_dir * move_accel * delta)
@@ -180,6 +127,98 @@ func apply_movement(amount):
 
 func apply_rotation(dir,delta):
 	rotation.y = lerp_angle(rotation.y, atan2(dir.x,dir.z), delta*rot_accel)
-	if camera_rig.mouse_delta.x != 0:
-		var rot = camera_rig.mouse_delta.x * camera_rig.look_sensitivity * delta
+	if $CameraRig.mouse_delta.x != 0:
+		var rot = $CameraRig.mouse_delta.x * $CameraRig.look_sensitivity * delta
 		rotation_degrees.y -= rot
+
+func find_grab_pos():
+	var obj_pos = grabbed_obj.translation
+	if abs(translation.x - obj_pos.x) > abs(translation.z - obj_pos.z):
+		grab_pos.z = obj_pos.z
+		if translation.x < obj_pos.x:
+			grab_pos.x = obj_pos.x - 1
+		else:
+			grab_pos.x = obj_pos.x + 1
+	else:
+		grab_pos.x = obj_pos.x
+		if translation.z < obj_pos.z:
+			grab_pos.z = obj_pos.z - 1
+		else:
+			grab_pos.z = obj_pos.z + 1
+
+func release_obj():
+	var new_mat = SpatialMaterial.new()
+	new_mat.albedo_color = Color(1.0,0.6,1.0)
+	grabbed_obj.get_node("MeshInstance").material_override = new_mat
+	grabbed_obj = null
+
+func apply_align_tween():
+	in_align_tween = true
+	var obj_pos = grabbed_obj.global_transform.origin
+	var align_rot = atan2(-obj_pos.z+grab_pos.z,obj_pos.x-grab_pos.x)
+	$AlignTween.interpolate_property(
+		self, "translation", translation, grab_pos, Global.ALIGN_TWEEN_DURATION,
+		Tween.TRANS_QUAD, Tween.EASE_IN_OUT
+	)
+	$AlignRotTween.start()
+	$AlignTween.start()
+
+func on_align_tween_completed(object,key):
+	in_align_tween = false
+	align_tween_complete = true
+
+func move_player_against_obj(delta):
+	var obj_pos = grabbed_obj.translation
+	var look_dir = Vector3(translation.x - obj_pos.x, 0, translation.z - obj_pos.z)
+	var look_angle = atan2(-look_dir.x,-look_dir.z)
+	rotation.y = lerp_angle(rotation.y, look_angle, delta*rot_accel)
+	translation = lerp(translation,grab_pos,0.15)
+	var x_ready = false
+	var z_ready = false
+	var rot_ready = false
+	if abs(translation.x - grab_pos.x) < 0.05:
+		translation.x = grab_pos.x
+		x_ready = true
+	if abs(translation.z - grab_pos.z) < 0.05:
+		translation.z = grab_pos.z
+		z_ready = true
+	if abs(rotation.y - look_angle) < 0.05:
+		rotation.y = look_angle
+		rot_ready = true
+	if x_ready and z_ready and rot_ready:
+		return true
+	return false
+
+func determine_movement_keys():
+	# determine which keys move the object along the axis
+	var forward_input = ""
+	var backward_input = ""
+	var obj_pos = grabbed_obj.global_transform.origin
+	var forward_dir = (Vector2(translation.x,translation.z) - Vector2(obj_pos.x,obj_pos.z)).normalized()
+	var camera_dir = Vector2(sin($CameraRig.rotation.y),cos($CameraRig.rotation.y))
+	var camera_perp = Vector2(camera_dir.y,-camera_dir.x)
+	var dot_cam = forward_dir.dot(camera_dir)
+	var dot_perp = forward_dir.dot(camera_perp)
+	if abs(dot_cam) > abs(dot_perp):
+		#		   [forward input, backward input]
+		if dot_cam > 0:
+			return ["move_down", "move_up"]
+		else:
+			return ["move_up", "move_down"]
+	else:
+		if dot_perp > 0:
+			return ["move_right", "move_left"]
+		else:
+			return ["move_left", "move_right"]
+
+func apply_move_obj_tween(target):
+	in_move_obj_tween = true
+	$MoveObjTween.interpolate_property(
+		self, "translation", translation, translation+target, Global.MOVE_TWEEN_DURATION,
+		Tween.TRANS_QUAD, Tween.EASE_IN_OUT
+	)
+	$MoveObjTween.start()
+
+func on_move_obj_tween_completed(object,key):
+	in_move_obj_tween = false
+	move_obj_tween_complete = true

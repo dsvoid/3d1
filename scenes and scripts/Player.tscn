@@ -46,4 +46,8 @@ enabled = true
 cast_to = Vector3( 0, 0, 1.25 )
 collision_mask = 2
 
-[node name="Tween" type="Tween" parent="."]
+[node name="MoveObjTween" type="Tween" parent="."]
+
+[node name="AlignTween" type="Tween" parent="."]
+
+[node name="AlignRotTween" type="Tween" parent="."]

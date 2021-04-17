@@ -26,4 +26,4 @@ shape = SubResource( 1 )
 mesh = SubResource( 3 )
 material/0 = null
 
-[node name="Tween" type="Tween" parent="."]
+[node name="MoveTween" type="Tween" parent="."]
