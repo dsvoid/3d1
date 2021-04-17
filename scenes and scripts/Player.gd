@@ -81,6 +81,9 @@ func state_hold_obj(delta):
 	var rot_obj = false
 	if Input.is_action_pressed(forward_input):
 		# check for potential collisions before allowing forward movement
+		var obj_pos = grabbed_obj.global_transform.origin
+		var forward_dir = Vector3(obj_pos.x - translation.x,0,obj_pos.z - translation.z).normalized()
+		grabbed_obj.push_ray_cast.set_cast_to(forward_dir)
 		if not grabbed_obj.push_ray_cast.is_colliding():
 			move_obj_dir = 1
 			move_obj = true

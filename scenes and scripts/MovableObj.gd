@@ -9,7 +9,7 @@ onready var push_ray_cast = $PushRayCast
 func _ready():
 	$MoveTween.connect("tween_completed", self, "on_move_tween_completed")
 	$RotTween.connect("tween_completed", self, "on_rot_tween_completed")
-	pass
+
 
 func apply_move_tween(target):
 	in_move_tween = true
@@ -29,6 +29,7 @@ func apply_rot_tween(target):
 		self, "rotation", rotation, Vector3(0,rotation.y+target,0), Global.ROT_TWEEN_DURATION,
 		Tween.TRANS_QUAD, Tween.EASE_IN_OUT
 	)
+	$PushRayCast.rotation.y -= target
 	$RotTween.start()
 
 func on_rot_tween_completed(object,key):

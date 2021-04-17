@@ -51,12 +51,6 @@ use_key={
  ]
 }
 
-[layer_names]
-
-3d_physics/layer_1="player"
-3d_physics/layer_2="obj"
-3d_physics/layer_3="held_obj"
-
 [rendering]
 
 environment/default_environment="res://default_env.tres"

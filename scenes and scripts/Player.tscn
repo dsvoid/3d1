@@ -15,7 +15,6 @@ mid_height = 0.5
 size = Vector3( 0.3, 0.3, 0.5 )
 
 [node name="Player" type="KinematicBody"]
-collision_mask = 2
 script = ExtResource( 2 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
@@ -44,13 +43,11 @@ size = 8.0
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 enabled = true
 cast_to = Vector3( 0, 0, 1.25 )
-collision_mask = 2
 
 [node name="BehindRayCast" type="RayCast" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 enabled = true
 cast_to = Vector3( 0, 0, -1 )
-collision_mask = 2
 
 [node name="MoveObjTween" type="Tween" parent="."]
 
