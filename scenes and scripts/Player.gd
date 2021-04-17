@@ -167,28 +167,6 @@ func on_align_tween_completed(object,key):
 	in_align_tween = false
 	align_tween_complete = true
 
-func move_player_against_obj(delta):
-	var obj_pos = grabbed_obj.translation
-	var look_dir = Vector3(translation.x - obj_pos.x, 0, translation.z - obj_pos.z)
-	var look_angle = atan2(-look_dir.x,-look_dir.z)
-	rotation.y = lerp_angle(rotation.y, look_angle, delta*rot_accel)
-	translation = lerp(translation,grab_pos,0.15)
-	var x_ready = false
-	var z_ready = false
-	var rot_ready = false
-	if abs(translation.x - grab_pos.x) < 0.05:
-		translation.x = grab_pos.x
-		x_ready = true
-	if abs(translation.z - grab_pos.z) < 0.05:
-		translation.z = grab_pos.z
-		z_ready = true
-	if abs(rotation.y - look_angle) < 0.05:
-		rotation.y = look_angle
-		rot_ready = true
-	if x_ready and z_ready and rot_ready:
-		return true
-	return false
-
 func determine_movement_keys():
 	# determine which keys move the object along the axis
 	var forward_input = ""
