@@ -80,11 +80,15 @@ func state_hold_obj(delta):
 	var move_obj = false
 	var rot_obj = false
 	if Input.is_action_pressed(forward_input):
-		move_obj_dir = 1
-		move_obj = true
+		# check for potential collisions before allowing forward movement
+		if not grabbed_obj.push_ray_cast.is_colliding():
+			move_obj_dir = 1
+			move_obj = true
 	elif Input.is_action_pressed(backward_input):
-		move_obj_dir = -1
-		move_obj = true
+		# check for potential collisions before allowing backward movement
+		if not $BehindRayCast.is_colliding():
+			move_obj_dir = -1
+			move_obj = true
 	elif Input.is_action_pressed(rot_cw_input):
 		rot_obj_dir = -PI/2
 		rot_obj = true

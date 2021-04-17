@@ -4,6 +4,8 @@ var in_move_tween : bool = false
 var in_rot_tween : bool = false
 var rot_tween_complete : bool = false
 
+onready var push_ray_cast = $PushRayCast
+
 func _ready():
 	$MoveTween.connect("tween_completed", self, "on_move_tween_completed")
 	$RotTween.connect("tween_completed", self, "on_rot_tween_completed")

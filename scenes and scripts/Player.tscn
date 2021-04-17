@@ -46,6 +46,12 @@ enabled = true
 cast_to = Vector3( 0, 0, 1.25 )
 collision_mask = 2
 
+[node name="BehindRayCast" type="RayCast" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
+enabled = true
+cast_to = Vector3( 0, 0, -1 )
+collision_mask = 2
+
 [node name="MoveObjTween" type="Tween" parent="."]
 
 [node name="AlignTween" type="Tween" parent="."]

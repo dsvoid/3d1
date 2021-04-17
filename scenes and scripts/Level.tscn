@@ -25,3 +25,6 @@ material/0 = null
 
 [node name="MovableObj" parent="." instance=ExtResource( 2 )]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.5, -2.5 )
+
+[node name="MovableObj2" parent="." instance=ExtResource( 2 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0.5, -2.5 )
