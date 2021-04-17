@@ -21,9 +21,6 @@ func on_move_tween_completed(object,key):
 	in_move_tween = false
 
 func apply_rot_tween(target):
-	print("in apply_rot_tween")
-	print("CURRENT ROTATION: %s" % [str(rotation.y)])
-	print("DESIRED ROTATION: %s" % [str(rotation.y+target)])
 	in_rot_tween = true
 	$CollisionShape.disabled = true
 	$RotTween.interpolate_property(

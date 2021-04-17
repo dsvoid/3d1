@@ -115,7 +115,6 @@ func state_rot_obj(delta):
 		state = HOLD_OBJ
 		return
 	if not grabbed_obj.in_rot_tween:
-		print("calling apply_rot_tween from state_rot_obj")
 		grabbed_obj.apply_rot_tween(rot_obj_dir)
 
 func process_movement(delta):
