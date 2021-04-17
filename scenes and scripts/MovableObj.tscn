@@ -27,3 +27,5 @@ mesh = SubResource( 3 )
 material/0 = null
 
 [node name="MoveTween" type="Tween" parent="."]
+
+[node name="RotTween" type="Tween" parent="."]

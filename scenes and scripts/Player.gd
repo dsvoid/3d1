@@ -9,8 +9,9 @@ var vel : Vector3 = Vector3()
 var grabbed_obj : StaticBody = null
 var grab_pos : Vector3 = Vector3.ZERO
 var move_obj_dir : int = 0
+var rot_obj_dir : float = 0.0
 
-enum {IDLE,ALIGN_WITH_OBJ,HOLD_OBJ,MOVE_OBJ}
+enum {IDLE,ALIGN_WITH_OBJ,HOLD_OBJ,MOVE_OBJ,ROT_OBJ}
 var state : int = IDLE
 
 var in_move_obj_tween : bool = false
@@ -34,6 +35,8 @@ func _physics_process(delta):
 			state_hold_obj(delta)
 		MOVE_OBJ:
 			state_move_obj(delta)
+		ROT_OBJ:
+			state_rot_obj(delta)
 	$CameraRig.global_transform.origin = global_transform.origin
 
 func state_idle(delta):
@@ -72,15 +75,27 @@ func state_hold_obj(delta):
 	var inputs = determine_movement_keys()
 	var forward_input = inputs[0]
 	var backward_input = inputs[1]
+	var rot_cw_input = inputs[2]
+	var rot_ccw_input = inputs[3]
 	var move_obj = false
+	var rot_obj = false
 	if Input.is_action_pressed(forward_input):
 		move_obj_dir = 1
 		move_obj = true
 	elif Input.is_action_pressed(backward_input):
 		move_obj_dir = -1
 		move_obj = true
+	elif Input.is_action_pressed(rot_cw_input):
+		rot_obj_dir = -PI/2
+		rot_obj = true
+	elif Input.is_action_pressed(rot_ccw_input):
+		rot_obj_dir = PI/2
+		rot_obj = true
 	if move_obj:
 		state = MOVE_OBJ
+		return
+	elif rot_obj:
+		state = ROT_OBJ
 		return
 
 func state_move_obj(delta):
@@ -93,6 +108,15 @@ func state_move_obj(delta):
 		var forward_dir = Vector3(obj_pos.x - translation.x,0,obj_pos.z - translation.z).normalized()
 		grabbed_obj.apply_move_tween(forward_dir*move_obj_dir)
 		apply_move_obj_tween(forward_dir*move_obj_dir)
+
+func state_rot_obj(delta):
+	if grabbed_obj.rot_tween_complete:
+		grabbed_obj.rot_tween_complete = false
+		state = HOLD_OBJ
+		return
+	if not grabbed_obj.in_rot_tween:
+		print("calling apply_rot_tween from state_rot_obj")
+		grabbed_obj.apply_rot_tween(rot_obj_dir)
 
 func process_movement(delta):
 	var input_dir = Vector3.ZERO
@@ -178,16 +202,16 @@ func determine_movement_keys():
 	var dot_cam = forward_dir.dot(camera_dir)
 	var dot_perp = forward_dir.dot(camera_perp)
 	if abs(dot_cam) > abs(dot_perp):
-		#		   [forward input, backward input]
+		#		   [forward input, backward input, rotate cw input, rotate ccw input]
 		if dot_cam > 0:
-			return ["move_down", "move_up"]
+			return ["move_down", "move_up", "move_right", "move_left"]
 		else:
-			return ["move_up", "move_down"]
+			return ["move_up", "move_down", "move_left", "move_right"]
 	else:
 		if dot_perp > 0:
-			return ["move_right", "move_left"]
+			return ["move_right", "move_left", "move_up", "move_down"]
 		else:
-			return ["move_left", "move_right"]
+			return ["move_left", "move_right", "move_down", "move_up"]
 
 func apply_move_obj_tween(target):
 	in_move_obj_tween = true

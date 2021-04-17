@@ -2,3 +2,4 @@ extends Node
 
 const MOVE_TWEEN_DURATION = 0.5
 const ALIGN_TWEEN_DURATION = 0.3
+const ROT_TWEEN_DURATION = 0.5

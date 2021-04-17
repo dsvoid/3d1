@@ -1,9 +1,12 @@
 extends StaticBody
 
 var in_move_tween : bool = false
+var in_rot_tween : bool = false
+var rot_tween_complete : bool = false
 
 func _ready():
 	$MoveTween.connect("tween_completed", self, "on_move_tween_completed")
+	$RotTween.connect("tween_completed", self, "on_rot_tween_completed")
 	pass
 
 func apply_move_tween(target):
@@ -16,3 +19,20 @@ func apply_move_tween(target):
 
 func on_move_tween_completed(object,key):
 	in_move_tween = false
+
+func apply_rot_tween(target):
+	print("in apply_rot_tween")
+	print("CURRENT ROTATION: %s" % [str(rotation.y)])
+	print("DESIRED ROTATION: %s" % [str(rotation.y+target)])
+	in_rot_tween = true
+	$CollisionShape.disabled = true
+	$RotTween.interpolate_property(
+		self, "rotation", rotation, Vector3(0,rotation.y+target,0), Global.ROT_TWEEN_DURATION,
+		Tween.TRANS_QUAD, Tween.EASE_IN_OUT
+	)
+	$RotTween.start()
+
+func on_rot_tween_completed(object,key):
+	in_rot_tween = false
+	rot_tween_complete = true
+	$CollisionShape.disabled = false
