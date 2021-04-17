@@ -19,6 +19,10 @@ config/name="3d1"
 run/main_scene="res://scenes and scripts/Level.tscn"
 config/icon="res://icon.png"
 
+[autoload]
+
+Global="*res://scenes and scripts/Global.gd"
+
 [input]
 
 move_left={
@@ -46,6 +50,12 @@ use_key={
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":70,"unicode":0,"echo":false,"script":null)
  ]
 }
+
+[layer_names]
+
+3d_physics/layer_1="player"
+3d_physics/layer_2="obj"
+3d_physics/layer_3="held_obj"
 
 [rendering]
 
