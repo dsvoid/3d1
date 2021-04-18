@@ -45,8 +45,8 @@ func state_idle(delta):
 		grabbed_obj = $GrabRayCast.get_collider()
 		var new_mat = SpatialMaterial.new()
 		new_mat.albedo_color = Color(0,0.7,0)
-		grabbed_obj.get_node("MeshInstance").material_override = new_mat
-		find_grab_pos()
+		grabbed_obj.get_node("DefaultMeshInstance").material_override = new_mat
+		new_find_grab_pos()
 		state = ALIGN_WITH_OBJ
 		return
 
@@ -137,7 +137,6 @@ func process_movement(delta):
 		input_dir.z = input_rotated.y
 		apply_movement(input_dir * move_accel * delta)
 		apply_rotation(input_dir,delta)
-	
 	vel = move_and_slide(vel,Vector3.UP)
 
 func apply_friction(amount):	
@@ -176,10 +175,19 @@ func find_grab_pos():
 		else:
 			grab_pos.z = obj_pos.z + 1
 
+func new_find_grab_pos():
+	var obj_pos = grabbed_obj.global_transform.origin
+	var grab_distances = []
+	var grab_points = grabbed_obj.grab_points
+	for i in range(grab_points.size()):
+		grab_distances.append(global_transform.origin.distance_to(obj_pos + grab_points[i]))
+	var grab_index = grab_distances.find(grab_distances.min())
+	grab_pos = obj_pos + Vector3(grab_points[grab_index].x,-0.5,grab_points[grab_index].z)
+
 func release_obj():
 	var new_mat = SpatialMaterial.new()
 	new_mat.albedo_color = Color(1.0,0.6,1.0)
-	grabbed_obj.get_node("MeshInstance").material_override = new_mat
+	grabbed_obj.get_node("DefaultMeshInstance").material_override = new_mat
 	grabbed_obj = null
 
 func apply_align_tween():
