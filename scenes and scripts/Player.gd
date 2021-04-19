@@ -19,11 +19,14 @@ var move_obj_tween_complete : bool = false
 var in_align_tween : bool = false
 var align_tween_complete : bool = false
 
+var level
+
 func _ready():
 	$MoveObjTween.connect("tween_completed", self, "on_move_obj_tween_completed")
 	$AlignTween.connect("tween_completed", self, "on_align_tween_completed")
 	# separate player rotation from camera rotation
 	$CameraRig.set_as_toplevel(true)
+	level = get_parent()
 
 func _physics_process(delta):
 	match state:
@@ -46,14 +49,26 @@ func state_idle(delta):
 		var new_mat = SpatialMaterial.new()
 		new_mat.albedo_color = Color(0,0.7,0)
 		grabbed_obj.get_node("DefaultMeshInstance").material_override = new_mat
-		new_find_grab_pos()
+		find_grab_pos()
 		state = ALIGN_WITH_OBJ
 		return
 
 func state_align_with_obj(delta):
 	var obj_pos = grabbed_obj.global_transform.origin
-	var look_dir = Vector3(translation.x - obj_pos.x, 0, translation.z - obj_pos.z)
-	var look_angle = atan2(-look_dir.x,-look_dir.z)
+	vel = Vector3.ZERO
+	# TODO: update formula for arbitrarily sized MovableObj
+	var look_dir = grab_pos
+	if abs(obj_pos.x - grab_pos.x) > abs(obj_pos.z - grab_pos.z):
+		if grab_pos.x < obj_pos.x:
+			look_dir = Vector3(1,0,0)
+		else:
+			look_dir = Vector3(-1,0,0)
+	else:
+		if grab_pos.z < obj_pos.z:
+			look_dir = Vector3(0,0,1)
+		else:
+			look_dir = Vector3(0,0,-1)
+	var look_angle = atan2(-look_dir.z,look_dir.x)
 	if align_tween_complete:
 		align_tween_complete = false
 		rotation.y = look_angle
@@ -79,17 +94,43 @@ func state_hold_obj(delta):
 	var rot_ccw_input = inputs[3]
 	var move_obj = false
 	var rot_obj = false
+	grab_pos = global_transform.origin
 	if Input.is_action_pressed(forward_input):
+		level.coll_lift(grabbed_obj)
 		# check for potential collisions before allowing forward movement
 		var obj_pos = grabbed_obj.global_transform.origin
-		var forward_dir = Vector3(obj_pos.x - translation.x,0,obj_pos.z - translation.z).normalized()
-		grabbed_obj.push_ray_cast.set_cast_to(forward_dir)
-		if not grabbed_obj.push_ray_cast.is_colliding():
+		var level_obj_pos = level.obj_dict[grabbed_obj]["pos"]
+		var forward_dir = Vector3(cos(rotation.y), 0, -sin(rotation.y))
+		var desired_obj_pos = Vector3(level_obj_pos.x+forward_dir.x,0,level_obj_pos.z+forward_dir.z)
+		var valid_object_place = level.valid_place(
+			desired_obj_pos.x,
+			desired_obj_pos.z,
+			grabbed_obj.size_x,
+			grabbed_obj.size_z
+		)
+		if valid_object_place:
 			move_obj_dir = 1
 			move_obj = true
 	elif Input.is_action_pressed(backward_input):
+		level.coll_lift(grabbed_obj)
 		# check for potential collisions before allowing backward movement
-		if not $BehindRayCast.is_colliding():
+		var obj_pos = grabbed_obj.global_transform.origin
+		var level_obj_pos = level.obj_dict[grabbed_obj]["pos"]
+		var backward_dir =  Vector3(-cos(rotation.y), 0, sin(rotation.y))
+		var valid_object_place = level.valid_place(
+			level_obj_pos.x+backward_dir.x,
+			level_obj_pos.z+backward_dir.z,
+			grabbed_obj.size_x,
+			grabbed_obj.size_z
+		)
+		# check if player can be placed hwen moving backwards
+		var valid_player_place = level.valid_place(
+			global_transform.origin.x-0.5+backward_dir.x,
+			global_transform.origin.z-0.5+backward_dir.z,
+			1,
+			1
+		)
+		if valid_player_place and valid_object_place:
 			move_obj_dir = -1
 			move_obj = true
 	elif Input.is_action_pressed(rot_cw_input):
@@ -108,11 +149,12 @@ func state_hold_obj(delta):
 func state_move_obj(delta):
 	if move_obj_tween_complete:
 		move_obj_tween_complete = false
+		level.coll_place(grabbed_obj)
 		state = HOLD_OBJ
 		return
 	if not in_move_obj_tween:
 		var obj_pos = grabbed_obj.global_transform.origin
-		var forward_dir = Vector3(obj_pos.x - translation.x,0,obj_pos.z - translation.z).normalized()
+		var forward_dir = Vector3(cos(rotation.y), 0, -sin(rotation.y))
 		grabbed_obj.apply_move_tween(forward_dir*move_obj_dir)
 		apply_move_obj_tween(forward_dir*move_obj_dir)
 
@@ -155,34 +197,24 @@ func apply_movement(amount):
 	vel.z = vel_clamped.y
 
 func apply_rotation(dir,delta):
-	rotation.y = lerp_angle(rotation.y, atan2(dir.x,dir.z), delta*rot_accel)
+	rotation.y = lerp_angle(rotation.y, atan2(-dir.z,dir.x), delta*rot_accel)
 	if $CameraRig.mouse_delta.x != 0:
 		var rot = $CameraRig.mouse_delta.x * $CameraRig.look_sensitivity * delta
 		rotation_degrees.y -= rot
 
 func find_grab_pos():
-	var obj_pos = grabbed_obj.translation
-	if abs(translation.x - obj_pos.x) > abs(translation.z - obj_pos.z):
-		grab_pos.z = obj_pos.z
-		if translation.x < obj_pos.x:
-			grab_pos.x = obj_pos.x - 1
-		else:
-			grab_pos.x = obj_pos.x + 1
-	else:
-		grab_pos.x = obj_pos.x
-		if translation.z < obj_pos.z:
-			grab_pos.z = obj_pos.z - 1
-		else:
-			grab_pos.z = obj_pos.z + 1
-
-func new_find_grab_pos():
-	var obj_pos = grabbed_obj.global_transform.origin
+	var obj_pos = level.obj_dict[grabbed_obj]["pos"]
+	var grab_points = []
+	for x in range(grabbed_obj.size_x):
+		grab_points.append(Vector3(obj_pos.x+0.5+x, obj_pos.y, obj_pos.z-0.5))
+		grab_points.append(Vector3(obj_pos.x+0.5+x, obj_pos.y, obj_pos.z+grabbed_obj.size_z+0.5))
+	for z in range(grabbed_obj.size_z):
+		grab_points.append(Vector3(obj_pos.x-0.5, obj_pos.y, obj_pos.z+0.5+z))
+		grab_points.append(Vector3(obj_pos.x+grabbed_obj.size_x+0.5, obj_pos.y, obj_pos.z+0.5+z))
 	var grab_distances = []
-	var grab_points = grabbed_obj.grab_points
 	for i in range(grab_points.size()):
-		grab_distances.append(global_transform.origin.distance_to(obj_pos + grab_points[i]))
-	var grab_index = grab_distances.find(grab_distances.min())
-	grab_pos = obj_pos + Vector3(grab_points[grab_index].x,-0.5,grab_points[grab_index].z)
+		grab_distances.append(global_transform.origin.distance_to(grab_points[i]))
+	grab_pos = grab_points[grab_distances.find(grab_distances.min())]
 
 func release_obj():
 	var new_mat = SpatialMaterial.new()
@@ -198,7 +230,6 @@ func apply_align_tween():
 		self, "translation", translation, grab_pos, Global.ALIGN_TWEEN_DURATION,
 		Tween.TRANS_QUAD, Tween.EASE_IN_OUT
 	)
-	$AlignRotTween.start()
 	$AlignTween.start()
 
 func on_align_tween_completed(object,key):

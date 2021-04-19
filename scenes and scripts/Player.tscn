@@ -4,17 +4,18 @@
 [ext_resource path="res://scenes and scripts/Player.gd" type="Script" id=2]
 
 [sub_resource type="CapsuleShape" id=1]
-radius = 0.5
-height = 0.5
+radius = 0.48
+height = 0.54
 
 [sub_resource type="CapsuleMesh" id=2]
-radius = 0.5
-mid_height = 0.5
+radius = 0.48
+mid_height = 0.54
 
 [sub_resource type="CubeMesh" id=3]
-size = Vector3( 0.3, 0.3, 0.5 )
+size = Vector3( 0.6, 0.3, 0.3 )
 
 [node name="Player" type="KinematicBody"]
+collision_mask = 6
 script = ExtResource( 2 )
 
 [node name="CollisionShape" type="CollisionShape" parent="."]
@@ -27,7 +28,7 @@ mesh = SubResource( 2 )
 material/0 = null
 
 [node name="TempBeak" type="MeshInstance" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1.5, 0, 1.134, 0.39 )
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.428296, 1.19004, 0 )
 mesh = SubResource( 3 )
 material/0 = null
 
@@ -37,17 +38,14 @@ script = ExtResource( 1 )
 
 [node name="Camera" type="Camera" parent="CameraRig"]
 transform = Transform( -1, -1.62921e-07, 2.82187e-07, 0, 0.866025, 0.5, -3.25841e-07, 0.5, -0.866025, 0, 6, -9 )
+fov = 45.0
 size = 8.0
 
 [node name="GrabRayCast" type="RayCast" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
 enabled = true
-cast_to = Vector3( 0, 0, 1.25 )
-
-[node name="BehindRayCast" type="RayCast" parent="."]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0 )
-enabled = true
-cast_to = Vector3( 0, 0, -1 )
+cast_to = Vector3( 1.25, 0, 0 )
+collision_mask = 4
 
 [node name="MoveObjTween" type="Tween" parent="."]
 

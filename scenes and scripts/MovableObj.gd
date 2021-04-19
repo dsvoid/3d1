@@ -5,32 +5,13 @@ var size_z : int = 1
 var in_move_tween : bool = false
 var in_rot_tween : bool = false
 var rot_tween_complete : bool = false
-var grab_points : Array = []
-
-onready var push_ray_cast = $PushRayCast
+var level
 
 func _ready():
 	$MoveTween.connect("tween_completed", self, "on_move_tween_completed")
 	$RotTween.connect("tween_completed", self, "on_rot_tween_completed")
-	init_size()
-	init_grab_points()
+	level = get_parent()
 
-func init_size(x=1,z=1):
-	size_x = x
-	size_z = z
-	$CollisionShape.shape.extents = Vector3(x/2.0,0.5,z/2.0)
-	$DefaultMeshInstance.mesh.size = Vector3(x,1,z)
-
-func init_grab_points():
-	var start_x = -(size_x/2.0) + 0.5
-	for i in range(size_x):
-		grab_points.append(Vector3(start_x+i,0,0.5+(size_z/2.0)))
-		grab_points.append(Vector3(start_x+i,0,-0.5-(size_z/2.0)))
-	var start_z = -(size_z/2.0) + 0.5
-	for i in range(size_z):
-		grab_points.append(Vector3(0.5+(size_x/2.0),0,start_z+i))
-		grab_points.append(Vector3(-0.5-(size_x/2.0),0,start_z+i))
-	
 func apply_move_tween(target):
 	in_move_tween = true
 	$MoveTween.interpolate_property(
@@ -41,6 +22,7 @@ func apply_move_tween(target):
 
 func on_move_tween_completed(object,key):
 	in_move_tween = false
+	level.coll_place(self)
 
 func apply_rot_tween(target):
 	in_rot_tween = true
@@ -49,7 +31,6 @@ func apply_rot_tween(target):
 		self, "rotation", rotation, Vector3(0,rotation.y+target,0), Global.ROT_TWEEN_DURATION,
 		Tween.TRANS_QUAD, Tween.EASE_IN_OUT
 	)
-	$PushRayCast.rotation.y -= target
 	$RotTween.start()
 
 func on_rot_tween_completed(object,key):
