@@ -4,6 +4,7 @@
 [ext_resource path="res://scenes and scripts/Player.gd" type="Script" id=2]
 
 [sub_resource type="CapsuleShape" id=1]
+margin = 0.001
 radius = 0.48
 height = 0.54
 

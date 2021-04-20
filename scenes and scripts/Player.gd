@@ -8,7 +8,7 @@ var align_rot_accel : float = 12.0
 var vel : Vector3 = Vector3()
 var grabbed_obj : StaticBody = null
 var grab_pos : Vector3 = Vector3.ZERO
-var move_obj_dir : int = 0
+var move_dir : Vector3 = Vector3.ZERO
 var rot_obj_dir : float = 0.0
 
 enum {IDLE,ALIGN_WITH_OBJ,HOLD_OBJ,MOVE_OBJ,ROT_OBJ}
@@ -95,43 +95,30 @@ func state_hold_obj(delta):
 	var move_obj = false
 	var rot_obj = false
 	grab_pos = global_transform.origin
-	if Input.is_action_pressed(forward_input):
+	if Input.is_action_pressed(forward_input) or Input.is_action_pressed(backward_input):
 		level.coll_lift(grabbed_obj)
 		# check for potential collisions before allowing forward movement
 		var obj_pos = grabbed_obj.global_transform.origin
 		var level_obj_pos = level.obj_dict[grabbed_obj]["pos"]
-		var forward_dir = Vector3(cos(rotation.y), 0, -sin(rotation.y))
-		var desired_obj_pos = Vector3(level_obj_pos.x+forward_dir.x,0,level_obj_pos.z+forward_dir.z)
+		var valid_player_place = true
+		if Input.is_action_pressed(forward_input):
+			move_dir = Vector3(cos(rotation.y), 0, -sin(rotation.y))
+		else:
+			move_dir = Vector3(-cos(rotation.y), 0, sin(rotation.y))
+			valid_player_place = level.valid_place(
+				global_transform.origin.x-0.5+move_dir.x,
+				global_transform.origin.z-0.5+move_dir.z,
+				1,
+				1
+			)
+		var desired_obj_pos = Vector3(level_obj_pos.x+move_dir.x,0,level_obj_pos.z+move_dir.z)
 		var valid_object_place = level.valid_place(
 			desired_obj_pos.x,
 			desired_obj_pos.z,
 			grabbed_obj.size_x,
 			grabbed_obj.size_z
-		)
-		if valid_object_place:
-			move_obj_dir = 1
-			move_obj = true
-	elif Input.is_action_pressed(backward_input):
-		level.coll_lift(grabbed_obj)
-		# check for potential collisions before allowing backward movement
-		var obj_pos = grabbed_obj.global_transform.origin
-		var level_obj_pos = level.obj_dict[grabbed_obj]["pos"]
-		var backward_dir =  Vector3(-cos(rotation.y), 0, sin(rotation.y))
-		var valid_object_place = level.valid_place(
-			level_obj_pos.x+backward_dir.x,
-			level_obj_pos.z+backward_dir.z,
-			grabbed_obj.size_x,
-			grabbed_obj.size_z
-		)
-		# check if player can be placed hwen moving backwards
-		var valid_player_place = level.valid_place(
-			global_transform.origin.x-0.5+backward_dir.x,
-			global_transform.origin.z-0.5+backward_dir.z,
-			1,
-			1
-		)
-		if valid_player_place and valid_object_place:
-			move_obj_dir = -1
+		) 
+		if valid_object_place and valid_player_place:
 			move_obj = true
 	elif Input.is_action_pressed(rot_cw_input):
 		rot_obj_dir = -PI/2
@@ -155,8 +142,8 @@ func state_move_obj(delta):
 	if not in_move_obj_tween:
 		var obj_pos = grabbed_obj.global_transform.origin
 		var forward_dir = Vector3(cos(rotation.y), 0, -sin(rotation.y))
-		grabbed_obj.apply_move_tween(forward_dir*move_obj_dir)
-		apply_move_obj_tween(forward_dir*move_obj_dir)
+		grabbed_obj.apply_move_tween(move_dir)
+		apply_move_obj_tween(move_dir)
 
 func state_rot_obj(delta):
 	if grabbed_obj.rot_tween_complete:
@@ -217,6 +204,7 @@ func find_grab_pos():
 	grab_pos = grab_points[grab_distances.find(grab_distances.min())]
 
 func release_obj():
+	vel = Vector3.ZERO
 	var new_mat = SpatialMaterial.new()
 	new_mat.albedo_color = Color(1.0,0.6,1.0)
 	grabbed_obj.get_node("DefaultMeshInstance").material_override = new_mat

@@ -15,9 +15,9 @@ func _ready():
 		for z in range(size_z):
 			coll_matrix[x].append(false)
 	# test objects
-	add_movable_obj(4,4)
-	add_movable_obj(5,5)
-	
+	add_movable_obj(1,1)
+	add_movable_obj(2,2,4,4)
+
 
 func add_movable_obj(pos_x,pos_z,obj_size_x=1,obj_size_z=1):
 	var new_movable_obj = MovableObj.instance()
@@ -29,9 +29,7 @@ func add_movable_obj(pos_x,pos_z,obj_size_x=1,obj_size_z=1):
 	var obj_dmi = new_movable_obj.get_node("DefaultMeshInstance")
 	obj_cs.shape.extents = Vector3(obj_size_x/2.0, 0.5, obj_size_z/2.0)
 	obj_dmi.mesh.size = Vector3(obj_size_x,1,obj_size_z)
-	for x in range(obj_size_x):
-		for z in range(obj_size_z):
-			coll_matrix[pos_x+x][pos_z+z] = true
+	coll_place(new_movable_obj)
 	obj_dict[new_movable_obj] = { "pos": Vector3(pos_x, 0, pos_z) }
 
 func coll_lift(movable_obj):
@@ -42,6 +40,8 @@ func coll_lift(movable_obj):
 
 func coll_place(movable_obj):
 	var obj_pos = movable_obj.global_transform.origin + Vector3(-movable_obj.size_x/2.0,0,-movable_obj.size_z/2.0)
+	if not movable_obj in obj_dict:
+		obj_dict[movable_obj] = { "pos" : Vector3.ZERO }
 	obj_dict[movable_obj]["pos"] = Vector3(obj_pos.x, 0, obj_pos.z)
 	for x in range(movable_obj.size_x):
 		for z in range(movable_obj.size_z):
@@ -50,8 +50,8 @@ func coll_place(movable_obj):
 func valid_place(pos_x,pos_z,obj_size_x,obj_size_z):
 	for x in range(obj_size_x):
 		for z in range(obj_size_z):
-			var check_x = pos_x+x
-			var check_z = pos_z+z
+			var check_x = int(pos_x+x)
+			var check_z = int(pos_z+z)
 			if check_x >= size_x or check_z >= size_z:
 				return false
 			if check_x < 0 or check_z < 0:
