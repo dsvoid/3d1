@@ -19,14 +19,12 @@ var move_obj_tween_complete : bool = false
 var in_align_tween : bool = false
 var align_tween_complete : bool = false
 
-var level
 
 func _ready():
 	$MoveObjTween.connect("tween_completed", self, "on_move_obj_tween_completed")
 	$AlignTween.connect("tween_completed", self, "on_align_tween_completed")
 	# separate player rotation from camera rotation
 	$CameraRig.set_as_toplevel(true)
-	level = get_parent()
 
 func _physics_process(delta):
 	match state:
@@ -55,7 +53,6 @@ func state_idle(delta):
 
 func state_align_with_obj(delta):
 	var obj_pos = grabbed_obj.global_transform.origin
-	vel = Vector3.ZERO
 	# TODO: update formula for arbitrarily sized MovableObj
 	var look_dir = grab_pos
 	if abs(obj_pos.x - grab_pos.x) > abs(obj_pos.z - grab_pos.z):
@@ -94,49 +91,68 @@ func state_hold_obj(delta):
 	var rot_ccw_input = inputs[3]
 	var move_obj = false
 	var rot_obj = false
+	var valid_player_back_movement = true
 	grab_pos = global_transform.origin
 	if Input.is_action_pressed(forward_input) or Input.is_action_pressed(backward_input):
-		level.coll_lift(grabbed_obj)
+		move_obj = true
 		# check for potential collisions before allowing forward movement
 		var obj_pos = grabbed_obj.global_transform.origin
-		var level_obj_pos = level.obj_dict[grabbed_obj]["pos"]
 		var valid_player_place = true
 		if Input.is_action_pressed(forward_input):
 			move_dir = Vector3(cos(rotation.y), 0, -sin(rotation.y))
 		else:
 			move_dir = Vector3(-cos(rotation.y), 0, sin(rotation.y))
-			valid_player_place = level.valid_place(
-				global_transform.origin.x-0.5+move_dir.x,
-				global_transform.origin.z-0.5+move_dir.z,
-				1,
-				1
-			)
-		var desired_obj_pos = Vector3(level_obj_pos.x+move_dir.x,0,level_obj_pos.z+move_dir.z)
-		var valid_object_place = level.valid_place(
-			desired_obj_pos.x,
-			desired_obj_pos.z,
-			grabbed_obj.size_x,
-			grabbed_obj.size_z
-		) 
-		if valid_object_place and valid_player_place:
-			move_obj = true
+			var behind_raycast = RayCast.new()
+			add_child(behind_raycast)
+			behind_raycast.global_transform.origin = global_transform.origin + move_dir
+			behind_raycast.global_transform.origin.y = 2.5
+			behind_raycast.set_cast_to(Vector3(0,-2,0))
+			behind_raycast.set_collision_mask_bit(1,true)
+			behind_raycast.set_collision_mask_bit(2,true)
+			behind_raycast.set_enabled(true)
+			behind_raycast.force_raycast_update()
+			if behind_raycast.is_colliding():
+				valid_player_back_movement = false
+			behind_raycast.queue_free()
+		var coll_points = []
+		if(abs(move_dir.x) > abs(move_dir.z)):
+			for z in grabbed_obj.size_z:
+				var coll_x = obj_pos.x + (((grabbed_obj.size_x/2.0) + 0.5) * move_dir.x)
+				var coll_z = obj_pos.z - (grabbed_obj.size_z/2.0) + 0.5 + z
+				coll_points.append(Vector3(coll_x, 2.5, coll_z))
+		else:
+			for x in grabbed_obj.size_x:
+				var coll_x = obj_pos.x - (grabbed_obj.size_x/2.0) + 0.5 + x
+				var coll_z = obj_pos.z + (((grabbed_obj.size_z/2.0) + 0.5) * move_dir.z)
+				coll_points.append(Vector3(coll_x, 2.5, coll_z))
+		for coll_point in coll_points:
+			var raycast = RayCast.new()
+			add_child(raycast)
+			raycast.global_transform.origin = coll_point
+			raycast.set_cast_to(Vector3(0,-2,0))
+			raycast.set_collision_mask_bit(1,true)
+			raycast.set_collision_mask_bit(2,true)
+			raycast.set_enabled(true)
+			raycast.force_raycast_update()
+			if raycast.is_colliding():
+				move_obj = false
+				raycast.queue_free()
+				break
+			raycast.queue_free()
 	elif Input.is_action_pressed(rot_cw_input):
 		rot_obj_dir = -PI/2
 		rot_obj = true
 	elif Input.is_action_pressed(rot_ccw_input):
 		rot_obj_dir = PI/2
 		rot_obj = true
-	if move_obj:
+	if move_obj and valid_player_back_movement:
 		state = MOVE_OBJ
-		return
 	elif rot_obj:
 		state = ROT_OBJ
-		return
 
 func state_move_obj(delta):
 	if move_obj_tween_complete:
 		move_obj_tween_complete = false
-		level.coll_place(grabbed_obj)
 		state = HOLD_OBJ
 		return
 	if not in_move_obj_tween:
@@ -190,14 +206,20 @@ func apply_rotation(dir,delta):
 		rotation_degrees.y -= rot
 
 func find_grab_pos():
-	var obj_pos = level.obj_dict[grabbed_obj]["pos"]
+	var obj_pos = grabbed_obj.global_transform.origin
 	var grab_points = []
 	for x in range(grabbed_obj.size_x):
-		grab_points.append(Vector3(obj_pos.x+0.5+x, obj_pos.y, obj_pos.z-0.5))
-		grab_points.append(Vector3(obj_pos.x+0.5+x, obj_pos.y, obj_pos.z+grabbed_obj.size_z+0.5))
+		var grab_x = obj_pos.x - (grabbed_obj.size_x/2.0) + 0.5 + x
+		var grab_z_north = obj_pos.z - (grabbed_obj.size_z/2.0) - 0.5
+		var grab_z_south = obj_pos.z + (grabbed_obj.size_z/2.0) + 0.5
+		grab_points.append(Vector3(grab_x, 0, grab_z_north))
+		grab_points.append(Vector3(grab_x, 0, grab_z_south))
 	for z in range(grabbed_obj.size_z):
-		grab_points.append(Vector3(obj_pos.x-0.5, obj_pos.y, obj_pos.z+0.5+z))
-		grab_points.append(Vector3(obj_pos.x+grabbed_obj.size_x+0.5, obj_pos.y, obj_pos.z+0.5+z))
+		var grab_z = obj_pos.z - (grabbed_obj.size_z/2.0) + 0.5 + z
+		var grab_x_west = obj_pos.x - (grabbed_obj.size_x/2.0) - 0.5
+		var grab_x_east = obj_pos.x + (grabbed_obj.size_x/2.0) + 0.5
+		grab_points.append(Vector3(grab_x_west, 0, grab_z))
+		grab_points.append(Vector3(grab_x_east, 0, grab_z))
 	var grab_distances = []
 	for i in range(grab_points.size()):
 		grab_distances.append(global_transform.origin.distance_to(grab_points[i]))
