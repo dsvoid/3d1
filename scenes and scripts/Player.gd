@@ -7,11 +7,12 @@ var rot_accel : float = 8.0
 var align_rot_accel : float = 12.0
 var vel : Vector3 = Vector3()
 var grabbed_obj : StaticBody = null
-var grab_pos : Vector3 = Vector3.ZERO
-var move_dir : Vector3 = Vector3.ZERO
+var grab_pos : Vector3 = Vector3()
+var move_dir : Vector3 = Vector3()
 var rot_obj_dir : float = 0.0
-
-enum {IDLE,ALIGN_WITH_OBJ,HOLD_OBJ,MOVE_OBJ,ROT_OBJ}
+var look_dir : Vector3 = Vector3()
+var pivot_diff : Vector3 = Vector3()
+enum {IDLE,ALIGN_WITH_OBJ,HOLD_OBJ,MOVE_OBJ,ROT_OBJ,PIVOT_OBJ}
 var state : int = IDLE
 
 var in_move_obj_tween : bool = false
@@ -38,6 +39,8 @@ func _physics_process(delta):
 			state_move_obj(delta)
 		ROT_OBJ:
 			state_rot_obj(delta)
+		PIVOT_OBJ:
+			state_pivot_obj(delta)
 	$CameraRig.global_transform.origin = global_transform.origin
 
 func state_idle(delta):
@@ -54,7 +57,6 @@ func state_idle(delta):
 func state_align_with_obj(delta):
 	var obj_pos = grabbed_obj.global_transform.origin
 	# TODO: update formula for arbitrarily sized MovableObj
-	var look_dir = grab_pos
 	if abs(obj_pos.x - grab_pos.x) > abs(obj_pos.z - grab_pos.z):
 		if grab_pos.x < obj_pos.x:
 			look_dir = Vector3(1,0,0)
@@ -91,12 +93,13 @@ func state_hold_obj(delta):
 	var rot_ccw_input = inputs[3]
 	var move_obj = false
 	var rot_obj = false
+	var pivot_obj = false
 	var valid_player_back_movement = true
+	var obj_pos = grabbed_obj.global_transform.origin
 	grab_pos = global_transform.origin
 	if Input.is_action_pressed(forward_input) or Input.is_action_pressed(backward_input):
 		move_obj = true
 		# check for potential collisions before allowing forward movement
-		var obj_pos = grabbed_obj.global_transform.origin
 		var valid_player_place = true
 		if Input.is_action_pressed(forward_input):
 			move_dir = Vector3(cos(rotation.y), 0, -sin(rotation.y))
@@ -139,16 +142,64 @@ func state_hold_obj(delta):
 				raycast.queue_free()
 				break
 			raycast.queue_free()
-	elif Input.is_action_pressed(rot_cw_input):
-		rot_obj_dir = -PI/2
-		rot_obj = true
-	elif Input.is_action_pressed(rot_ccw_input):
-		rot_obj_dir = PI/2
-		rot_obj = true
+	elif Input.is_action_pressed(rot_cw_input) or Input.is_action_pressed(rot_ccw_input):
+		if Input.is_action_pressed(rot_cw_input):
+			rot_obj_dir = -PI/2
+		elif Input.is_action_pressed(rot_ccw_input):
+			rot_obj_dir = PI/2
+		if grabbed_obj.size_x == grabbed_obj.size_z:
+			rot_obj = true
+		else:
+			pivot_obj = true
+			# determine if collision would occur before pivoting
+			var perp_dir = look_dir.rotated(Vector3.UP,rot_obj_dir)
+			var coll_points = []
+			if(grabbed_obj.size_x > grabbed_obj.size_z):
+				var add_z = sign(rot_obj_dir) * sign(grab_pos.x - obj_pos.x)
+				if look_dir.x != 0:
+					add_z = perp_dir.z
+				for x in range(grabbed_obj.size_x):
+					var coll_x = obj_pos.x - 0.5 + x
+					var coll_z = obj_pos.z + add_z
+					coll_points.append(Vector3(coll_x, 2.5, coll_z))
+			else:
+				var add_x = sign(rot_obj_dir) * -sign(grab_pos.z - obj_pos.z)
+				if look_dir.z != 0:
+					add_x = perp_dir.x
+				for z in range(grabbed_obj.size_z):
+					var coll_x = obj_pos.x + add_x
+					var coll_z = obj_pos.z - 0.5 + z
+					coll_points.append(Vector3(coll_x, 2.5, coll_z))
+			for coll_point in coll_points:
+				var raycast = RayCast.new()
+				add_child(raycast)
+				raycast.global_transform.origin = coll_point
+				raycast.set_cast_to(Vector3(0,-2,0))
+				raycast.set_collision_mask_bit(0,true)
+				raycast.set_collision_mask_bit(1,true)
+				raycast.set_collision_mask_bit(2,true)
+				raycast.set_exclude_parent_body(false)
+				raycast.set_enabled(true)
+				raycast.force_raycast_update()
+				if raycast.is_colliding():
+					pivot_obj = false
+					raycast.queue_free()
+					break
+				raycast.queue_free()
+			# modify origin point of object for simple rotation appearance
+			if pivot_obj:
+				var pivot_point = grab_pos + look_dir
+				pivot_diff = obj_pos - pivot_point
+				pivot_diff.y = 0
+				grabbed_obj.global_transform.origin -= pivot_diff
+				grabbed_obj.get_node("CollisionShape").global_transform.origin += pivot_diff
+				grabbed_obj.get_node("DefaultMeshInstance").global_transform.origin += pivot_diff
 	if move_obj and valid_player_back_movement:
 		state = MOVE_OBJ
 	elif rot_obj:
 		state = ROT_OBJ
+	elif pivot_obj:
+		state = PIVOT_OBJ
 
 func state_move_obj(delta):
 	if move_obj_tween_complete:
@@ -169,6 +220,21 @@ func state_rot_obj(delta):
 	if not grabbed_obj.in_rot_tween:
 		grabbed_obj.apply_rot_tween(rot_obj_dir)
 
+func state_pivot_obj(delta):
+	if grabbed_obj.rot_tween_complete:
+		var post_diff = pivot_diff.rotated(Vector3.UP,rot_obj_dir)
+		grabbed_obj.global_transform.origin += post_diff
+		grabbed_obj.get_node("CollisionShape").translation = Vector3.ZERO
+		grabbed_obj.get_node("DefaultMeshInstance").translation = Vector3.ZERO
+		var mid = grabbed_obj.size_x
+		grabbed_obj.size_x = grabbed_obj.size_z
+		grabbed_obj.size_z = mid
+		grabbed_obj.rot_tween_complete = false
+		state = HOLD_OBJ
+		return
+	if not grabbed_obj.in_rot_tween:
+		grabbed_obj.apply_rot_tween(rot_obj_dir)
+	
 func process_movement(delta):
 	var input_dir = Vector3.ZERO
 	input_dir.x = int(Input.is_action_pressed("move_left")) - int(Input.is_action_pressed("move_right"))

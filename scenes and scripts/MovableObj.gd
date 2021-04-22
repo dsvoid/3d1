@@ -2,26 +2,20 @@ extends StaticBody
 
 var size_x: int = 1
 var size_z : int = 1
-var in_move_tween : bool = false
 var in_rot_tween : bool = false
 var rot_tween_complete : bool = false
 
 func _ready():
-	$MoveTween.connect("tween_completed", self, "on_move_tween_completed")
 	$RotTween.connect("tween_completed", self, "on_rot_tween_completed")
 	size_x = $CollisionShape.shape.extents.x * 2.0
 	size_z = $CollisionShape.shape.extents.z * 2.0
 
 func apply_move_tween(target):
-	in_move_tween = true
 	$MoveTween.interpolate_property(
 		self, "translation", translation, translation+target, Global.MOVE_TWEEN_DURATION,
 		Tween.TRANS_QUAD, Tween.EASE_IN_OUT
 	)
 	$MoveTween.start()
-
-func on_move_tween_completed(object,key):
-	in_move_tween = false
 
 func apply_rot_tween(target):
 	in_rot_tween = true

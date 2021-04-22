@@ -7,12 +7,12 @@ resource_local_to_scene = true
 margin = 0.001
 extents = Vector3( 0.5, 0.5, 0.5 )
 
-[sub_resource type="SpatialMaterial" id=2]
+[sub_resource type="SpatialMaterial" id=21]
 albedo_color = Color( 0.968627, 0.6, 1, 1 )
 
 [sub_resource type="CubeMesh" id=3]
 resource_local_to_scene = true
-material = SubResource( 2 )
+material = SubResource( 21 )
 size = Vector3( 1, 1, 1 )
 
 [node name="MovableObj" type="StaticBody"]
@@ -29,6 +29,8 @@ material/0 = null
 [node name="MoveTween" type="Tween" parent="."]
 
 [node name="RotTween" type="Tween" parent="."]
+
+[node name="PivotTween" type="Tween" parent="."]
 
 [node name="PushRayCast" type="RayCast" parent="."]
 enabled = true
